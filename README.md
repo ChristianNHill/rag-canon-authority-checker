@@ -88,22 +88,22 @@ Cases come from two places. Some are planted, written to test a specific failure
 
 Scoring uses two modes chosen per case. I check the verdict and the review-routing decision by exact match, against a value I derived by reading the corpus text myself. I never ran the system and copied its own output as the expected value, since that would only check the system against itself. I check the winning citation differently: a judge decides whether the quote plausibly justifies the claimed relation, rather than matching it against one hand-picked source. Real evidence often has more than one chunk that would correctly justify the same verdict, so exact-matching a citation would penalize a legitimate alternative. Sending a claim with one correct answer to a model judge is slower and less reliable than checking it directly. So the verdict itself never gets a judge; only the reasoning behind it does.
 
-The starter golden set has nine cases across the six strata above. That is smaller than I would want long-term, and thinner in places than I would like: soft contradiction turned out to be the hardest stratum to find organically, since the corpus doesn't populate the blog and community tiers yet, and cookbook-tier content is mostly internal engineering convention, not the kind of user-facing claim that would meaningfully conflict with an official doc. The soft contradiction case here is planted rather than found, built from a real, verified fact rather than invented from nothing. Expanding this set, especially with more found real cases, is the natural next step.
+The golden set has grown to thirteen cases across the six strata above. Cross-tool and soft contradiction stay at one case each: both turned out to be the hardest strata to find organically, since the corpus doesn't populate the blog and community tiers yet, and cookbook-tier content is mostly internal engineering convention, not the kind of user-facing claim that would meaningfully conflict with an official doc. The soft contradiction case is planted rather than found, built from a real, verified fact rather than invented from nothing. Growing those two strata further, especially with more found real cases, is the natural next step.
 
 ## Results
 
-First run against the nine-case starter set, 2026-08-30. These counts are too small to read as a real precision and recall number, so I'm reporting them as raw per-stratum results rather than dressing them up as statistics:
+Second run, 2026-08-30, against the thirteen-case golden set (up from nine). These counts are still too small to read as a real precision and recall number, so I'm reporting them as raw per-stratum results rather than dressing them up as statistics:
 
 | Stratum | n | Verdict correct | Needs-review correct | Citation plausible |
 |---|---|---|---|---|
-| Hard contradiction | 2 | 2/2 | n/a | 1/2 |
-| Conflicting | 1 | 1/1 | 1/1 | 1/1 |
+| Hard contradiction | 3 | 3/3 | n/a | 2/3 |
+| Conflicting | 2 | 2/2 | 2/2 | 2/2 |
 | Cross-tool | 1 | 1/1 | n/a | 1/1 |
 | Soft contradiction | 1 | 1/1 | n/a | 1/1 |
-| Not established | 2 | 1/2 | n/a | 0/1 |
-| Clean | 2 | 2/2 | 1/1 | 2/2 |
+| Not established | 3 | 2/3 | n/a | 0/1 |
+| Clean | 3 | 3/3 | 1/1 | 3/3 |
 
-Seven of nine verdicts landed correctly. Both misses are real and worth reading, not noise, which is the point of the next section.
+Eleven of thirteen verdicts landed correctly. The four new cases all landed clean; both misses are the same two from the first run, which is a good sign for reproducibility rather than a bad one. Both are real and worth reading, not noise, which is the point of the next section.
 
 ## Where it fails
 
@@ -151,17 +151,17 @@ python -m ragcanon eval
 
 Needs a `.env` with `ANTHROPIC_API_KEY` for `check` and `eval`; nothing else calls a paid API. `pytest` runs the test suite (pure logic gets real tests; anything that calls an API gets a smoke test, skipped without a key).
 
+I ran all of this through headless Claude Code rather than typing commands by hand. A prompt like `claude -p "run python -m ragcanon check claude_code samples/passage.md and report the verdicts"` drives the same CLI non-interactively. That's how the acquisition, ingestion, and eval runs behind the results above happened.
+
 The review queue, where a person adjudicates flagged findings and that adjudication feeds back into the golden set and the policy file, is still ahead.
 
 ## What I would do differently in production
-
-This is an exploration, not a production system, and the gap between the two is worth naming.
 
 The corpus is a snapshot. Nothing here re-acquires or re-ingests on a schedule. The moment a real team adopted this, the first question would be how often to refresh it. A close second would be how to detect that a chunk's underlying page moved before someone notices a stale answer. Retrieval is a flat `numpy` matrix multiply, which is fine at ten thousand chunks and won't be at ten million. A real deployment would need an actual vector index long before the corpus grew that large.
 
 The review queue as designed assumes one reviewer working through a queue in order. A real team needs assignment, ownership, and a way to avoid two people adjudicating the same finding at once. And the policy file is versioned in name only right now: nothing tracks which policy version produced which past verdict, so a tier reordering or a new confidence threshold would make old adjudications incomparable to new ones, with no record that the change happened or that anyone decided it on purpose.
 
-None of this shows up until the system is in use. That's the real argument for treating the golden set and the review queue as living things rather than a one-time eval. The honest answer to "how would you know if it degraded" is that right now, you wouldn't. There's no run-over-run tracking of the per-stratum numbers above, only whatever I happen to have written down at the time.
+None of this shows up until the system is in use. That's the real argument for treating the golden set and the review queue as living things rather than a one-time eval.
 
 ## Notes
 

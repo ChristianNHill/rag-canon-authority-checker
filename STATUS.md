@@ -67,9 +67,9 @@ later deliverable needs one.
   whether MCP servers connect automatically) and a cross-tool tag that
   correctly didn't flip the verdict since the winning row was same-tool.
 
-- **E — Evaluation layer.** `golden_set.jsonl` (9 cases across 6 strata:
-  hard_contradiction ×2, conflicting ×1, cross_tool ×1, soft_contradiction ×1,
-  not_established ×2, clean ×2 — `conflicting` added as its own stratum
+- **E — Evaluation layer.** `golden_set.jsonl` (13 cases across 6 strata:
+  hard_contradiction ×3, conflicting ×2, cross_tool ×1, soft_contradiction ×1,
+  not_established ×3, clean ×3 — `conflicting` added as its own stratum
   beyond the original 5 in `PLAN.md`, since it's one of `resolve()`'s 4
   verdict states and real evidence for it was already in hand) + `eval.py`
   (`score_case()` runs the real pipeline per case, `summarize()` is pure/
@@ -81,8 +81,8 @@ later deliverable needs one.
   more than one chunk that would correctly justify the same verdict.
   `pytest tests/test_eval.py` — 3 unit tests, all passing.
 
-  First real run 2026-08-30: 7/9 verdicts correct. Both misses are real
-  findings, not harness bugs — full writeup in `README.md`'s "Where it
+  First real run 2026-08-30 (9 cases): 7/9 verdicts correct. Both misses are
+  real findings, not harness bugs — full writeup in `README.md`'s "Where it
   fails": (1) `hard-02` got the right verdict (contradicted) but the judge
   correctly flagged the winning citation as a weak link (about Sonnet 4.6
   and usage credits, not squarely about Sonnet-4.5-on-Max); (2) my own
@@ -91,6 +91,14 @@ later deliverable needs one.
   adjacent to the claim, the system found it at 0.55 confidence and
   correctly routed it to review (below the 0.7 threshold) rather than
   asserting it outright.
+
+  Second run 2026-08-30 (13 cases, after adding a 3rd hard_contradiction, a
+  2nd conflicting, and a 3rd each of not_established/clean, all mined from
+  the real corpus the same way as the first batch): 11/13 correct. All 4 new
+  cases landed clean; the only 2 misses are the same 2 from the first run
+  (good reproducibility signal). cross_tool and soft_contradiction are still
+  1 case each — hardest strata to find organically, see `README.md`'s
+  Evaluation section for why.
 
 ## Not started
 
