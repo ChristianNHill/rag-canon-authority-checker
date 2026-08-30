@@ -1,18 +1,19 @@
 import argparse
 
-from . import acquire, embed, ingest, llm, retrieve
+from . import acquire, check, embed, ingest, retrieve
 
 
 def _run_check(tool, passage_path):
     passage = open(passage_path, encoding="utf-8").read()
-    claims = llm.extract_claims(passage, tool)
-    print(f"{len(claims)} claims extracted:")
-    chunks, matrix = retrieve.load_index()
-    for claim in claims:
-        print(f"\nClaim: {claim}")
-        for r in retrieve.retrieve(claim, chunks, matrix, top_k_per_tool=3):
-            adj = llm.adjudicate(claim, r["text"])
-            print(f"  [{r['tool']} tier={r['tier']}] {adj.relation} ({adj.confidence:.2f}) :: {adj.quote!r}")
+    results = check.run(tool, passage)
+    for r in results:
+        print(f"\nClaim: {r['claim']}")
+        flag = " [NEEDS REVIEW]" if r["needs_review"] else ""
+        print(f"  -> {r['verdict'].upper()}{flag}")
+        for w in r["winners"]:
+            mismatch = " [cross-tool]" if w["tool"] != tool else ""
+            print(f"     [{w['tool']} tier={w['tier']}]{mismatch} {w['relation']} "
+                  f"({w['confidence']:.2f}) :: {w['quote']!r}")
 
 
 def main():

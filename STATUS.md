@@ -6,19 +6,16 @@ decision log with reasoning — this file is just "what's done, what's next."
 
 ## Immediate next step
 
-**Deliverable C has never actually been verified end-to-end.** `llm.py` is
-written (claim extraction + adjudication, both tested in isolation only via
-skipped-without-a-key smoke tests), but every real run against it failed —
-first on Voyage-unrelated auth issues, then on a "identity-linked API key
-needs `anthropic-workspace-id`" error. A new workspace-scoped key is now in
-`.env`, **but `python -m ragcanon check claude_code samples/passage.md` has
-not been re-run since**. `llm_cache.jsonl` doesn't exist on disk, which is
-the tell — no adjudication call has ever succeeded.
+**E — Evaluation layer** is next: a golden set (planted + real cases,
+stratified hard-contradiction / soft-contradiction / cross-tool /
+not-established / clean) and a stratified scorer against `resolve()`'s four
+verdict states. This is also the first real chance to check whether the
+`confidence_threshold: 0.7` in `canon_policy.yaml` is actually the right
+number, or just a placeholder that happened to work on one sample passage.
 
-Run that command first. If it works, confirm C's actual acceptance
-criteria: claims come out at a sensible granularity, and every returned
-quote verifies as a real substring of its chunk (already enforced in code
-via retry-then-raise, but not yet observed on a real passage).
+`check.py`'s output is a bare `List[dict]` printed by `cli.py` — no
+structured export format, no batch-passage mode yet. Low priority unless E's
+scorer needs one.
 
 ## Done
 
@@ -34,31 +31,46 @@ via retry-then-raise, but not yet observed on a real passage).
   flat top-k — handles the Claude-Code-is-10x-bigger imbalance). Cache-hit
   re-embedding confirmed working. `pytest tests/test_retrieve.py` — real
   tests, no API calls, all passing.
-- **C — Reasoning layer, code only.** `llm.py`. `extract_claims()` and
-  `adjudicate()`, both via `claude-opus-5` + `messages.parse` structured
-  output, adaptive thinking, high effort, prompt caching on the
-  adjudication system prompt, a response cache (`llm_cache.jsonl`, not yet
-  populated -- see above), quote-verification with retry. Written and unit
-  logic reviewed, **not yet run successfully against the real API.**
+- **C — Reasoning layer.** `llm.py`. `extract_claims()` and `adjudicate()`,
+  both via `claude-opus-5` + `messages.parse` structured output, adaptive
+  thinking, high effort, prompt caching on the adjudication system prompt, a
+  response cache (`llm_cache.jsonl`), quote-verification with retry.
+  Verified end-to-end against the real API 2026-08-30 (a workspace-scoped
+  key was needed — an identity-linked one fails without an
+  `anthropic-workspace-id` header): 4 claims extracted from
+  `samples/passage.md` at sensible granularity, every returned quote
+  confirmed as a real substring of its chunk. `pytest tests/` — 9/9
+  including the 2 LLM smoke tests that previously auto-skipped without a
+  key.
+- **D — Policy layer.** `canon_policy.yaml` (one knob:
+  `confidence_threshold: 0.7`, a provisional round number pending E's golden
+  set) + `ragcanon/resolve.py` (`resolve()`, pure, no I/O) + `ragcanon/check.py`
+  (the passage → claims → retrieve → adjudicate → resolve orchestration;
+  `cli.py`'s `check` subcommand calls this instead of printing raw
+  adjudications). Four verdict states — `confirmed` / `contradicted` /
+  `conflicting` / `not_established` — kept separate because "no evidence"
+  and "sources disagree with each other" are different problems from "the
+  claim is wrong," and route to different follow-up. Authority ordering:
+  supersession absolute override, then recency only when both competing rows
+  have a real (non-proxy) date, else tier — this follows from the corpus
+  (only changelog entries and Claude Code's dated digest pages have real
+  dates, so recency can't decide most tier-1-vs-tier-2 comparisons). Cross-
+  tool mismatch is a flag on the winning row, not a 5th state (matches
+  `PLAN.md`'s original resolution). Review routing: `conflicting` always
+  reviewed; `confirmed`/`contradicted` reviewed only if the winning row's
+  confidence is below the threshold. `pytest tests/test_resolve.py` — 10
+  unit tests, all passing. Verified against the real API on
+  `samples/passage.md` 2026-08-30: all four states fired in one run,
+  including a genuine `conflicting` catch (two Claude Code docs disagree on
+  whether MCP servers connect automatically) and a cross-tool tag that
+  correctly didn't flip the verdict since the winning row was same-tool.
 
 ## Not started
 
-- **D — Policy layer.** `canon_policy.yaml` + `resolve()` (pure function,
-  no I/O). This is where the real product decisions land:
-  - How many verdict states, and why "not established" is or isn't its own
-    state.
-  - The exact recency-vs-tier override rule (a recent changelog can
-    outrank older official docs; settled that this is a second axis, not
-    settled what the actual rule is).
-  - The confidence threshold a flag has to clear to reach a human review
-    queue.
-  - `check.py` (passage → claims → retrieve → adjudicate → resolve) also
-    belongs here — right now `cli.py`'s `check` subcommand does everything
-    except the resolve step, printing raw adjudications with no verdict.
 - **E — Evaluation layer.** Golden set (planted + real cases, stratified:
   hard contradiction / soft contradiction / cross-tool / not-established /
   clean), stratified scorer, scoring modes (not yet chosen).
-- **F — Shot list.** Not started; low priority relative to D/E.
+- **F — Shot list.** Not started; low priority relative to E/G.
 - **G — Human loop.** Review queue, adjudication states
   (confirmed / not-a-conflict / intentional departure / unclear), feedback
   into golden set + policy suggestions + a decisions ledger ingested at
@@ -90,5 +102,5 @@ via retry-then-raise, but not yet observed on a real passage).
   regenerable: `python -m ragcanon acquire && ... ingest && ... embed`
   rebuilds everything from scratch (acquire takes a few minutes; embed
   takes under a minute once cached, ~35s cold).
-- `pytest tests/` — 7 real tests always run; 2 LLM smoke tests skip
+- `pytest tests/` — 17 real tests always run; 2 LLM smoke tests skip
   automatically without a configured key.

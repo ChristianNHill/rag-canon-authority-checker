@@ -1,0 +1,5 @@
+# Deliverable D policy knobs. Verdict states and the authority ordering are
+# fixed logic (see ragcanon/resolve.py), not configuration -- this file only
+# holds the one number that's a real judgment call and will need
+# recalibrating once deliverable E's golden set exists.
+confidence_threshold: 0.7
