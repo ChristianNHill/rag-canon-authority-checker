@@ -88,28 +88,30 @@ Cases come from two places. Some are planted, written to test a specific failure
 
 Scoring uses two modes chosen per case. I check the verdict and the review-routing decision by exact match, against a value I derived by reading the corpus text myself. I never ran the system and copied its own output as the expected value, since that would only check the system against itself. I check the winning citation differently: a judge decides whether the quote plausibly justifies the claimed relation, rather than matching it against one hand-picked source. Real evidence often has more than one chunk that would correctly justify the same verdict, so exact-matching a citation would penalize a legitimate alternative. Sending a claim with one correct answer to a model judge is slower and less reliable than checking it directly. So the verdict itself never gets a judge; only the reasoning behind it does.
 
-The golden set has grown to thirteen cases across the six strata above. Cross-tool and soft contradiction stay at one case each: both turned out to be the hardest strata to find organically, since the corpus doesn't populate the blog and community tiers yet, and cookbook-tier content is mostly internal engineering convention, not the kind of user-facing claim that would meaningfully conflict with an official doc. The soft contradiction case is planted rather than found, built from a real, verified fact rather than invented from nothing. Growing those two strata further, especially with more found real cases, is the natural next step.
+The golden set has grown to eighteen cases across the six strata above. Cross-tool and soft contradiction stay at one case each: both turned out to be the hardest strata to find organically, since the corpus doesn't populate the blog and community tiers yet, and cookbook-tier content is mostly internal engineering convention, not the kind of user-facing claim that would meaningfully conflict with an official doc. The soft contradiction case is planted rather than found, built from a real, verified fact rather than invented from nothing. Growing those two strata further, especially with more found real cases, is the natural next step.
 
 ## Results
 
-Second run, 2026-08-30, against the thirteen-case golden set (up from nine). These counts are still too small to read as a real precision and recall number, so I'm reporting them as raw per-stratum results rather than dressing them up as statistics:
+Third run, 2026-08-30, against the eighteen-case golden set (up from thirteen). These counts are still too small to read as a real precision and recall number, so I'm reporting them as raw per-stratum results rather than dressing them up as statistics:
 
 | Stratum | n | Verdict correct | Needs-review correct | Citation plausible |
 |---|---|---|---|---|
-| Hard contradiction | 3 | 3/3 | n/a | 2/3 |
-| Conflicting | 2 | 2/2 | 2/2 | 2/2 |
+| Hard contradiction | 4 | 4/4 | n/a | 3/4 |
+| Conflicting | 4 | 4/4 | 4/4 | 3/4 |
 | Cross-tool | 1 | 1/1 | n/a | 1/1 |
 | Soft contradiction | 1 | 1/1 | n/a | 1/1 |
-| Not established | 3 | 2/3 | n/a | 0/1 |
-| Clean | 3 | 3/3 | 1/1 | 3/3 |
+| Not established | 4 | 3/4 | n/a | 0/1 |
+| Clean | 4 | 4/4 | 1/1 | 4/4 |
 
-Eleven of thirteen verdicts landed correctly. The four new cases all landed clean; both misses are the same two from the first run, which is a good sign for reproducibility rather than a bad one. Both are real and worth reading, not noise, which is the point of the next section.
+Seventeen of eighteen verdicts landed correctly. Two of the five new cases turned out not to be clean at all, which is its own finding, covered in the next section.
 
 ## Where it fails
 
 **A right verdict resting on a weak citation.** The claim was that Claude Code's 1M-token context window for Sonnet 4.5 is available on the Max plan. The system correctly called this contradicted, but the quote it cited to justify that was about Sonnet 4.6, not 4.5, and about needing extra usage credits, not about availability on Max as such. The verdict itself was right for other reasons visible elsewhere in the evidence, but this particular citation is a weaker link than it looks, which is exactly what the citation judge is supposed to catch and exact-match verdict scoring alone would have missed entirely.
 
 **A golden-set label that turned out to be wrong.** I wrote a not-established case claiming Claude Code can split a large refactor into multiple pull requests based on a file dependency graph, expecting no evidence either way. I was wrong: `/batch` does something adjacent. The system found it at 0.55 confidence and returned confirmed. But the citation judge flagged the citation as implausible, correctly: `/batch` doesn't split by a dependency graph, so the claim's specific mechanism isn't established even though the general shape of the feature is real. The confidence score, 0.55, below the 0.7 threshold, routed this to human review regardless of the verdict, which is the behavior that matters here: a low-confidence match gets sent to a person rather than asserted outright.
+
+**Two more golden-set labels that turned out to be wrong, in a more instructive way.** I wrote two clean cases from a single verified chunk each: an effort level in Claude Code persisting across sessions, and Codex's Terra tier being for everyday production work. Both were true of the chunk I read. Both turned out to be incomplete: a second Claude Code doc says `max` and `ultracode` effort levels are session-only unless you set them through an environment variable, and a second Codex doc describes the same tier as being for "lighter subagent work" rather than general production tasks. The system correctly found the second chunk in both cases and returned conflicting, not confirmed. The pattern across all three misses in this section is the same: verifying a claim against one chunk isn't enough, since the corpus often describes the same feature more than once, and not always the same way. That's a real limit of my own case-writing, and reading only one chunk before writing a golden-set label is exactly the failure mode this system exists to catch in other people's writing.
 
 ## Human in the loop
 
