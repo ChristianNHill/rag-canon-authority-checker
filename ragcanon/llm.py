@@ -43,6 +43,10 @@ class Adjudication(BaseModel):
     confidence: float
 
 
+class CitationJudgment(BaseModel):
+    plausible: bool
+
+
 _ADJUDICATE_SYSTEM = """You adjudicate whether one piece of evidence supports, \
 contradicts, or is irrelevant to one claim about an AI coding agent tool \
 (Claude Code, Cursor, or Codex).
@@ -137,6 +141,26 @@ def extract_claims(passage, tool):
     }]
     messages = [{"role": "user", "content": passage}]
     return _parse_cached(_client(), system, messages, ExtractedClaims).claims
+
+
+_JUDGE_SYSTEM = """You check whether a cited quote actually supports the relation \
+claimed between it and a claim about an AI coding agent tool.
+
+`plausible` is true if a reasonable person, reading only the quote, would agree it \
+{relation} the claim -- the reasoning has to hold up, not just the label. `plausible` \
+is false if the quote is off-topic, too weak to justify the relation, or the relation \
+looks backwards."""
+
+
+def judge_citation(claim, relation, quote):
+    """Deliverable E: does the winning quote actually justify the claimed
+    relation? A separate judge rather than a golden-set exact-match, because
+    real corpus evidence often has more than one chunk that would correctly
+    justify the same verdict -- there's no single 'correct' citation string
+    to match against, only a plausible-or-not judgment call."""
+    system = [{"type": "text", "text": _JUDGE_SYSTEM.format(relation=relation)}]
+    messages = [{"role": "user", "content": f"Claim: {claim}\n\nCited quote: {quote}"}]
+    return _parse_cached(_client(), system, messages, CitationJudgment).plausible
 
 
 def adjudicate(claim, chunk_text):

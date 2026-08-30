@@ -6,16 +6,18 @@ decision log with reasoning — this file is just "what's done, what's next."
 
 ## Immediate next step
 
-**E — Evaluation layer** is next: a golden set (planted + real cases,
-stratified hard-contradiction / soft-contradiction / cross-tool /
-not-established / clean) and a stratified scorer against `resolve()`'s four
-verdict states. This is also the first real chance to check whether the
-`confidence_threshold: 0.7` in `canon_policy.yaml` is actually the right
-number, or just a placeholder that happened to work on one sample passage.
+**G — Human loop** is next: a real review queue (somewhere to write
+adjudications, not just a design for one), the four adjudication states,
+and feedback into the golden set + policy suggestions + a decisions ledger
+ingested at tier 0. See `README.md`'s "Human in the loop" section for the
+intended shape.
 
-`check.py`'s output is a bare `List[dict]` printed by `cli.py` — no
-structured export format, no batch-passage mode yet. Low priority unless E's
-scorer needs one.
+Also worth doing before G, or alongside it: the golden set is thin (9 cases,
+1 each for conflicting/cross_tool/soft_contradiction), and E's first real
+run already found a real miss worth investigating further — see D's entry
+below. `check.py`'s output is a bare `List[dict]` printed by `cli.py` — no
+structured export format, no batch-passage mode yet. Low priority unless a
+later deliverable needs one.
 
 ## Done
 
@@ -65,12 +67,34 @@ scorer needs one.
   whether MCP servers connect automatically) and a cross-tool tag that
   correctly didn't flip the verdict since the winning row was same-tool.
 
+- **E — Evaluation layer.** `golden_set.jsonl` (9 cases across 6 strata:
+  hard_contradiction ×2, conflicting ×1, cross_tool ×1, soft_contradiction ×1,
+  not_established ×2, clean ×2 — `conflicting` added as its own stratum
+  beyond the original 5 in `PLAN.md`, since it's one of `resolve()`'s 4
+  verdict states and real evidence for it was already in hand) + `eval.py`
+  (`score_case()` runs the real pipeline per case, `summarize()` is pure/
+  unit-tested, no I/O). Two scoring modes: verdict + needs_review by exact
+  match against a value hand-derived from reading the actual corpus text
+  (never by running the system and copying its own output — that would be
+  circular), and the winning citation by an LLM judge (`llm.judge_citation()`)
+  for plausibility rather than exact-match, since real evidence often has
+  more than one chunk that would correctly justify the same verdict.
+  `pytest tests/test_eval.py` — 3 unit tests, all passing.
+
+  First real run 2026-08-30: 7/9 verdicts correct. Both misses are real
+  findings, not harness bugs — full writeup in `README.md`'s "Where it
+  fails": (1) `hard-02` got the right verdict (contradicted) but the judge
+  correctly flagged the winning citation as a weak link (about Sonnet 4.6
+  and usage credits, not squarely about Sonnet-4.5-on-Max); (2) my own
+  `not_established-01` case turned out to be a bad label, not a system
+  failure — Claude Code has a real `/batch` skill that does something
+  adjacent to the claim, the system found it at 0.55 confidence and
+  correctly routed it to review (below the 0.7 threshold) rather than
+  asserting it outright.
+
 ## Not started
 
-- **E — Evaluation layer.** Golden set (planted + real cases, stratified:
-  hard contradiction / soft contradiction / cross-tool / not-established /
-  clean), stratified scorer, scoring modes (not yet chosen).
-- **F — Shot list.** Not started; low priority relative to E/G.
+- **F — Shot list.** Not started; low priority relative to G.
 - **G — Human loop.** Review queue, adjudication states
   (confirmed / not-a-conflict / intentional departure / unclear), feedback
   into golden set + policy suggestions + a decisions ledger ingested at
@@ -102,5 +126,5 @@ scorer needs one.
   regenerable: `python -m ragcanon acquire && ... ingest && ... embed`
   rebuilds everything from scratch (acquire takes a few minutes; embed
   takes under a minute once cached, ~35s cold).
-- `pytest tests/` — 17 real tests always run; 2 LLM smoke tests skip
+- `pytest tests/` — 20 real tests always run; 2 LLM smoke tests skip
   automatically without a configured key.
