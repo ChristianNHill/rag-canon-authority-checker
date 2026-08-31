@@ -57,9 +57,7 @@ The review-queue loop (a person adjudicating flagged findings and feeding that b
 
 ## Design decisions
 
-The decisions below shaped the system more than any implementation detail did. Each one had a defensible alternative.
-
-**Verdict states.** Four, not three: confirmed, contradicted, conflicting, and not established. Not established stays separate from confirmed and contradicted because no evidence found is a coverage gap in the corpus, not a verdict about the claim. Conflicting stays separate from contradicted for the same reason: when the top-authority sources disagree with each other, the docs are unsettled, and that is a different problem from the passage being wrong. Collapsing either into a neighboring state would route the finding to the wrong follow-up.
+**Verdict states.** Four: confirmed, contradicted, conflicting, and not established. Not established stays separate from confirmed and contradicted because no evidence found is a coverage gap in the corpus, not a verdict about the claim. Conflicting stays separate from contradicted for the same reason: when the top-authority sources disagree with each other, the docs are unsettled, and that is a different problem from the passage being wrong. Collapsing either into a neighboring state would route the finding to the wrong follow-up.
 
 **Wrong versus wrong-for-this-tool.** A claim can be incorrect, or it can be correct for a different agent than the one under discussion. This became an attribute, not a fourth verdict state: every chunk already carries which tool it belongs to, so comparing that against the tool the submission is tagged with is a plain equality check the resolver can do for free. No separate model judgment call is needed. Retrieval stays tool-blind for the same reason it stays tier-blind: filtering to only the "target tool" upstream would make a cross-tool-confusion finding unreachable in the first place.
 
@@ -68,8 +66,6 @@ The decisions below shaped the system more than any implementation detail did. E
 The exact rule follows from what the corpus contains rather than an arbitrary cutoff. A source that explicitly marks itself as superseded always loses, regardless of tier or date, since the source is disclaiming itself. Otherwise, recency decides only when both competing sources carry a real date, not the ingest-time proxy date most doc pages get. Only changelog entries and Claude Code's dated digest pages carry a real date. Most tier comparisons have nothing to compare dates against in the first place, so tier decides instead.
 
 **Confidence threshold.** Not every flag is worth a person's attention. A conflicting verdict always goes to review, since it is definitionally ambiguous. A confirmed or contradicted verdict goes to review only if the winning evidence's own confidence score falls below 0.7. That number is a placeholder, chosen for lacking anything better: there was no golden set yet to calibrate it against. Now that one exists, it is the first thing worth revisiting.
-
-**Chunking.** Section-bounded, not fixed-size or paragraph-bounded: a chunk never crosses a heading boundary, and within a section, text is grouped up to a soft word cap. Two things don't split under any circumstance: a code fence and a markdown table row, because a citation that cuts a code block or a table row in half isn't quotable. The tradeoff against paragraph-bounded chunking (the simpler alternative) is a small amount of extra parsing complexity in exchange for citations that make sense for structured documentation instead of prose.
 
 ## Evaluation
 
@@ -111,7 +107,7 @@ Seventeen of eighteen verdicts landed correctly. Two of the five new cases turne
 
 **A golden-set label that turned out to be wrong.** I wrote a not-established case claiming Claude Code can split a large refactor into multiple pull requests based on a file dependency graph, expecting no evidence either way. `/batch` does something adjacent. The system found it at 0.55 confidence and returned confirmed. But the citation judge flagged the citation as implausible, correctly: `/batch` doesn't split by a dependency graph, so the claim's specific mechanism isn't established even though the general shape of the feature is real. The confidence score, 0.55, below the 0.7 threshold, routed this to human review regardless of the verdict, which is the behavior that matters here: a low-confidence match gets sent to a person rather than asserted outright.
 
-**Two more golden-set labels that turned out to be wrong, in a more instructive way.** I wrote two clean cases from a single verified chunk each: an effort level in Claude Code persisting across sessions, and Codex's Terra tier being for everyday production work. Both were true of the chunk I read. Both turned out to be incomplete: a second Claude Code doc says `max` and `ultracode` effort levels are session-only unless you set them through an environment variable, and a second Codex doc describes the same tier as being for "lighter subagent work" rather than general production tasks. The system correctly found the second chunk in both cases and returned conflicting, not confirmed. The pattern across all three misses in this section is the same: verifying a claim against one chunk isn't enough, since the corpus often describes the same feature more than once, and not always the same way. That's a real limit of my own case-writing, and reading only one chunk before writing a golden-set label is exactly the failure mode this system exists to catch in other people's writing.
+**Two more golden-set labels that turned out to be wrong, in a more instructive way.** I wrote two clean cases from a single verified chunk each: an effort level in Claude Code persisting across sessions, and Codex's Terra tier being for everyday production work. Both were right based on what I read. Both turned out to be incomplete: a second Claude Code doc says `max` and `ultracode` effort levels are session-only unless you set them through an environment variable, and a second Codex doc describes the same tier as being for "lighter subagent work" rather than general production tasks. The system correctly found the second chunk in both cases and returned conflicting, not confirmed. The pattern across all three misses in this section is the same: verifying a claim against one chunk isn't enough, since the corpus often describes the same feature more than once, and not always the same way. That's limit of my own case-writing, and reading only one chunk before writing a golden-set label is exactly the failure mode this system exists to catch in other people's writing.
 
 ## Human in the loop
 
@@ -130,7 +126,7 @@ Adjudications feed back rather than sitting in a log:
 
 That last one is what makes this a tool a team could keep using rather than one that argues with them indefinitely.
 
-I haven't built any of this yet. It's the natural next step after the golden set: a real review queue needs somewhere to write those adjudications and a decisions ledger, beyond a design for one.
+I haven't built any of this yet. It's the next step after the golden set: a real review queue needs somewhere to write those adjudications and a decisions ledger, beyond a design for one.
 
 ## Running it
 
